@@ -271,7 +271,7 @@ class ChatServiceTest {
 
     @Test
     fun getUnreadChatsCount() {
-        val result = ChatService.getUnreadChats(1)
+        val result = ChatService.getUnreadChatsCount(1)
         Assert.assertEquals(2, result)
     }
 

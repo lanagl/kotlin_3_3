@@ -241,11 +241,16 @@ object ChatService {
     }
 
     fun restoreChat(id: Int) {
-        val chatItem = deletedChats.find { it.id == id }
-        if (chatItem != null) {
-            chats.add(chatItem)
-            deletedChats.remove(chatItem)
-        }
+        deletedChats
+            .find { it.id == id }
+            .let {
+                it?.let { it1 ->
+                    {
+                        chats.add(it1)
+                        deletedChats.remove(it1)
+                    }
+                }
+            }
     }
 
     fun getChats(ids: ArrayList<Int>? = null): List<Chat> {
@@ -254,8 +259,11 @@ object ChatService {
 
     fun getChatsWithMessage(): List<Chat> {
         val ids = arrayListOf<Int>()
-        messages.forEach { message -> if (!ids.contains(message.chatId)) ids.add(message.chatId) }
+        messages.filter { !ids.contains(it.chatId) }
+            .map { ids.add(it.chatId) }
         return chats.filter { ids.contains(it.id) }
+
+
     }
 
 
@@ -284,22 +292,29 @@ object ChatService {
     fun deleteMessage(
         id: Int,
     ) {
-        val message = messages.find { it.id == id }
-        if (message?.deleted == false) {
-            message.deleted = true
+        messages
+            .find { it.id == id }
+            .takeIf { it?.deleted == false }
+            ?.apply {
+                this.deleted = true
 
-            if (getChatMessages(message.chatId).isEmpty()) {
-                deleteChat(message.chatId)
             }
+            .takeIf { it?.let { it1 -> getChatMessages(it1.chatId).isEmpty() } == true }
+            .apply { this?.let { deleteChat(it.chatId) } }
 
-        }
     }
 
     fun restoreMessage(
         id: Int,
     ) {
-        val message = messages.find { it.id == id }
-        if (message?.deleted == true) message.deleted = false
+        messages
+            .find { it.id == id }
+            .takeIf { it?.deleted == true }
+            .let {
+                if (it != null) {
+                    it.deleted = false
+                }
+            }
     }
 
     fun editMessage(
@@ -322,13 +337,9 @@ object ChatService {
     }
 
     private fun getUnreadChatsIds(userId: Int): List<Int> {
-        val chatsIds = arrayListOf<Int>()
-        messages.forEach { message ->
-            if (!message.readState && ((message.out && message.fromId != userId) || (!message.out && message.userId != userId))) {
-                if (!chatsIds.contains(message.chatId)) chatsIds.add(message.chatId)
-            }
-        }
-        return chatsIds
+        return messages
+            .filter { !it.readState && ((it.out && it.fromId != userId) || (!it.out && it.userId != userId)) }
+            .map { it.chatId }
     }
 
     fun getUnreadChats(userId: Int): List<Chat> {
@@ -342,16 +353,15 @@ object ChatService {
     }
 
     fun getChatMessages(chatId: Int, lastId: Int = 0, count: Int? = null): List<Message> {
-        val messagesTemp = arrayListOf<Message>()
         var index = 0
-        messages.forEach { message ->
-            if (message.chatId == chatId && !message.deleted && message.id >= lastId && (count == null || index < count)) {
-                messagesTemp.add(message)
-                index++
-                message.readState = true
+        return messages
+            .filter { it.chatId == chatId && !it.deleted && it.id >= lastId && (count == null || index < count) }
+            .apply {
+                this.map {
+                    it.readState = true
+                    index++
+                }
             }
-        }
-        return messagesTemp
     }
 
     fun getAllMessages(): List<Message> {
